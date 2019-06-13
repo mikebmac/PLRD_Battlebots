@@ -1,5 +1,3 @@
-#include <Servo.h>
-
 /*
 
   Demonstrates sending data packets of different length.  The receiver will check to see what size of
@@ -19,6 +17,7 @@
 
 #include <SPI.h>
 #include <NRFLite.h>
+#include <Servo.h>
 
 const static int IN1 = 7;
 const static int ENA = 6;
@@ -39,6 +38,7 @@ struct RadioPacket1
   uint8_t FromRadioId;
   uint8_t joyX;
   uint8_t joyY;
+  uint8_t weapon;
 };
 
 // nRf24L01
@@ -52,6 +52,7 @@ const long interval = 500;
 
 void setup()
 {
+  // Depends on motorcontroller
   weapon.attach(A1);
   
   pinMode(ENA, OUTPUT);
@@ -67,7 +68,7 @@ void setup()
 
   attachInterrupt(digitalPinToInterrupt(PIN_RADIO_IRQ), radioInterrupt, FALLING );
 
-  weaponAttack();
+  
 }
 
 void loop()
@@ -88,8 +89,8 @@ void loop()
       _radio.readData(&_radioData1);
 
       if (_radioData1.FromRadioId == 10) {
-        //safetyOn = true;
-        //break;
+        safetyOn = true;
+        break;
       }
 
       // Stop the bot from running away on lost packets
@@ -129,6 +130,12 @@ void loop()
       
       analogWrite(ENA, joyYmap);
       analogWrite(ENB, joyXmap);
+
+      if (_radioData1.weapon > 50) {
+        weaponAttack();
+      } else {
+        weaponOff();
+      }
       
       if (Serial) {
         Serial.print(joyXmap);
@@ -176,15 +183,9 @@ bool isTimeoutSafe() {
 }
 
 void weaponAttack() {
-  delay(1000);
-  weapon.writeMicroseconds(1010);
-  Serial.println(weapon.read());
-  delay(3000);
-  weapon.writeMicroseconds(1500);
-  Serial.println(weapon.read());
-  delay(3000);
-  weapon.writeMicroseconds(1930);
-  Serial.println(weapon.read());
-  delay(1000);
-  weapon.writeMicroseconds(0);
+  // weapon attack code
+}
+
+void weaponOff() {
+  // weapon stop code
 }
