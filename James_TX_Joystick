@@ -20,6 +20,7 @@
 #include <NRFLite.h>
 #define JoyStick_X_PIN     A0
 #define JoyStick_Y_PIN     A1
+#define Weapon_PIN         A2
 
 const static uint8_t RADIO_ID = 0;
 const static uint8_t DESTINATION_RADIO_ID = 0;
@@ -52,8 +53,8 @@ void setup()
 
 void loop()
 {
-  _radioData1.joyX = map(JoyStick_X_PIN, 374, 635, 0, 255);
-  _radioData1.joyY = map(JoyStick_Y_PIN, 374, 635, 0, 255) 
+  _radioData1.joyX = map(analogRead(JoyStick_X_PIN), 374, 635, 0, 255);
+  _radioData1.joyY = map(analogRead(JoyStick_Y_PIN), 374, 635, 0, 255) 
   
   int str1 = (int)_radioData1.joyX;
   int str2 = (int)_radioData1.joyY;
