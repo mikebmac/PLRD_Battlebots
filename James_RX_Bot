@@ -1,0 +1,190 @@
+#include <Servo.h>
+
+/*
+
+  Demonstrates sending data packets of different length.  The receiver will check to see what size of
+  packet was received and act accordingly.
+
+  Radio    Arduino
+  CE    -> 9
+  CSN   -> 10 (Hardware SPI SS)
+  MOSI  -> 11 (Hardware SPI MOSI)
+  MISO  -> 12 (Hardware SPI MISO)
+  SCK   -> 13 (Hardware SPI SCK)
+  IRQ   -> 3
+  VCC   -> No more than 3.6 volts
+  GND   -> GND
+
+*/
+
+#include <SPI.h>
+#include <NRFLite.h>
+
+const static int IN1 = 7;
+const static int ENA = 6;
+const static int IN2 = 2; // was 5
+const static int IN3 = 4;
+const static int ENB = 5; // was A0
+const static int IN4 = 8; 
+
+Servo weapon;
+
+const static uint8_t RADIO_ID = 0;
+const static uint8_t PIN_RADIO_CE = 9;
+const static uint8_t PIN_RADIO_CSN = 10;
+const static uint8_t PIN_RADIO_IRQ = 3;
+
+struct RadioPacket1
+{
+  uint8_t FromRadioId;
+  uint8_t joyX;
+  uint8_t joyY;
+};
+
+// nRf24L01
+NRFLite _radio;
+volatile uint8_t _dataWasReceived; // Note usage of volatile for the global variable being changed in the radio interrupt.
+
+// Safety
+bool safetyOn = false;
+volatile unsigned long previousMillis = 0; 
+const long interval = 500;
+
+void setup()
+{
+  weapon.attach(A1);
+  
+  pinMode(ENA, OUTPUT);
+  pinMode(ENB, OUTPUT);
+  
+  Serial.begin(115200);
+
+  if (!_radio.init(RADIO_ID, PIN_RADIO_CE, PIN_RADIO_CSN))
+  {
+    Serial.println("Cannot communicate with radio");
+    while (1); // Wait here forever.
+  }
+
+  attachInterrupt(digitalPinToInterrupt(PIN_RADIO_IRQ), radioInterrupt, FALLING );
+
+  weaponAttack();
+}
+
+void loop()
+{
+  // Stop the bot from running away on lost packets
+  if (!isTimeoutSafe()) {
+    analogWrite(ENA, 0);
+    analogWrite(ENB, 0);
+  }
+    
+  if (_dataWasReceived && !safetyOn)
+  {
+    _dataWasReceived = false;
+
+    // Radio Loop
+    while (_radio.hasDataISR()) {
+      RadioPacket1 _radioData1;
+      _radio.readData(&_radioData1);
+
+      if (_radioData1.FromRadioId == 10) {
+        //safetyOn = true;
+        //break;
+      }
+
+      // Stop the bot from running away on lost packets
+      if (!isTimeoutSafe()) {
+        analogWrite(ENA, 0);
+        analogWrite(ENB, 0);
+        break;
+      }
+    
+     int joyYmap;
+      
+      if (_radioData1.joyY < 120) {
+        digitalWrite(IN1, LOW);
+        digitalWrite(IN2, HIGH);
+        joyYmap = map(_radioData1.joyY, 0, 120, 255, 0);
+      } else if (_radioData1.joyY > 140) {
+        digitalWrite(IN1, HIGH);
+        digitalWrite(IN2, LOW);
+        joyYmap = map(_radioData1.joyY, 140, 255, 0, 255);
+      } else {
+        joyYmap = 0;
+      }
+  
+      int joyXmap;
+      
+      if (_radioData1.joyX < 120) {
+        digitalWrite(IN3, HIGH);
+        digitalWrite(IN4, LOW);
+        joyXmap = map(_radioData1.joyX, 0, 120, 255, 0);
+      } else if (_radioData1.joyX > 140) {
+        digitalWrite(IN3, LOW);
+        digitalWrite(IN4, HIGH);
+        joyXmap = map(_radioData1.joyX, 140, 255, 0, 255);
+      } else {
+        joyXmap = 0;
+      }
+      
+      analogWrite(ENA, joyYmap);
+      analogWrite(ENB, joyXmap);
+      
+      if (Serial) {
+        Serial.print(joyXmap);
+        Serial.print(" | ");
+        Serial.print(joyYmap);
+        Serial.print(" | ");
+        Serial.println(_radioData1.FromRadioId);
+        
+      }
+      
+      // Serial uses interrupts so let's ensure printing is complete before processing another radio interrupt.
+      Serial.flush();
+    }
+  }
+  delay(5);
+}
+
+void radioInterrupt()
+{
+    // Ask the radio what caused the interrupt.  This also resets the IRQ pin on the
+    // radio so a new interrupt can be triggered.
+
+    uint8_t txOk, txFail, rxReady;
+    _radio.whatHappened(txOk, txFail, rxReady);
+
+    // txOk = the radio successfully transmitted data.
+    // txFail = the radio failed to transmit data.
+    // rxReady = the radio received data.
+
+    if (rxReady)
+    {
+        _dataWasReceived = true;
+        previousMillis = millis();
+    }
+}
+
+bool isTimeoutSafe() {
+  unsigned long currentMillis = millis();
+  
+  if (currentMillis - previousMillis >= interval) {
+    return false;
+  }
+
+  return true;
+}
+
+void weaponAttack() {
+  delay(1000);
+  weapon.writeMicroseconds(1010);
+  Serial.println(weapon.read());
+  delay(3000);
+  weapon.writeMicroseconds(1500);
+  Serial.println(weapon.read());
+  delay(3000);
+  weapon.writeMicroseconds(1930);
+  Serial.println(weapon.read());
+  delay(1000);
+  weapon.writeMicroseconds(0);
+}
