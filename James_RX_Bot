@@ -25,10 +25,9 @@ const static int IN2 = 2; // was 5
 const static int IN3 = 4;
 const static int ENB = 5; // was A0
 const static int IN4 = 8; 
-
 Servo weapon;
 
-const static uint8_t RADIO_ID = 0;
+const static uint8_t RADIO_ID = 6;
 const static uint8_t PIN_RADIO_CE = 9;
 const static uint8_t PIN_RADIO_CSN = 10;
 const static uint8_t PIN_RADIO_IRQ = 3;
@@ -52,11 +51,11 @@ const long interval = 500;
 
 void setup()
 {
-  // Depends on motorcontroller
-  weapon.attach(A1);
-  
+  weapon.attach(2);
   pinMode(ENA, OUTPUT);
   pinMode(ENB, OUTPUT);
+  pinMode(IN1, OUTPUT);
+  pinMode(IN3, OUTPUT);
   
   Serial.begin(115200);
 
@@ -77,6 +76,7 @@ void loop()
   if (!isTimeoutSafe()) {
     analogWrite(ENA, 0);
     analogWrite(ENB, 0);
+    weapon.write(90);
   }
     
   if (_dataWasReceived && !safetyOn)
@@ -97,19 +97,20 @@ void loop()
       if (!isTimeoutSafe()) {
         analogWrite(ENA, 0);
         analogWrite(ENB, 0);
+        weapon.write(90);
         break;
       }
     
      int joyYmap;
       
       if (_radioData1.joyY < 120) {
-        digitalWrite(IN1, LOW);
-        digitalWrite(IN2, HIGH);
-        joyYmap = map(_radioData1.joyY, 0, 120, 255, 0);
-      } else if (_radioData1.joyY > 140) {
         digitalWrite(IN1, HIGH);
-        digitalWrite(IN2, LOW);
-        joyYmap = map(_radioData1.joyY, 140, 255, 0, 255);
+        
+        joyYmap = map(_radioData1.joyY, 0, 120, 250, 0);
+      } else if (_radioData1.joyY > 140) {
+        digitalWrite(IN1, LOW);
+        
+        joyYmap = map(_radioData1.joyY, 140, 255, 0, 250);
       } else {
         joyYmap = 0;
       }
@@ -117,13 +118,13 @@ void loop()
       int joyXmap;
       
       if (_radioData1.joyX < 120) {
-        digitalWrite(IN3, HIGH);
-        digitalWrite(IN4, LOW);
-        joyXmap = map(_radioData1.joyX, 0, 120, 255, 0);
-      } else if (_radioData1.joyX > 140) {
         digitalWrite(IN3, LOW);
-        digitalWrite(IN4, HIGH);
-        joyXmap = map(_radioData1.joyX, 140, 255, 0, 255);
+        
+        joyXmap = map(_radioData1.joyX, 0, 120, 250, 0);
+      } else if (_radioData1.joyX > 140) {
+        digitalWrite(IN3, HIGH);
+        
+        joyXmap = map(_radioData1.joyX, 140, 255, 0, 250);
       } else {
         joyXmap = 0;
       }
@@ -131,7 +132,7 @@ void loop()
       analogWrite(ENA, joyYmap);
       analogWrite(ENB, joyXmap);
 
-      if (_radioData1.weapon > 50) {
+      if (_radioData1.weapon == 1) {
         weaponAttack();
       } else {
         weaponOff();
@@ -142,8 +143,9 @@ void loop()
         Serial.print(" | ");
         Serial.print(joyYmap);
         Serial.print(" | ");
-        Serial.println(_radioData1.FromRadioId);
-        
+        Serial.print(_radioData1.FromRadioId);
+        Serial.print(" | ");
+        Serial.println(_radioData1.weapon);
       }
       
       // Serial uses interrupts so let's ensure printing is complete before processing another radio interrupt.
@@ -183,9 +185,9 @@ bool isTimeoutSafe() {
 }
 
 void weaponAttack() {
-  // weapon attack code
+  weapon.writeMicroseconds(1750);
 }
 
 void weaponOff() {
-  // weapon stop code
+  weapon.writeMicroseconds(0);
 }
